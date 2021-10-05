@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31515.178
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Saturn", "Saturn.vcxproj", "{F0B29235-FF7B-4CDD-92F0-1A1FC104F323}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Debug|x86 = Debug|x86
+		Release|x64 = Release|x64
+		Release|x86 = Release|x86
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F0B29235-FF7B-4CDD-92F0-1A1FC104F323}.Debug|x64.ActiveCfg = Debug|x64
+		{F0B29235-FF7B-4CDD-92F0-1A1FC104F323}.Debug|x64.Build.0 = Debug|x64
+		{F0B29235-FF7B-4CDD-92F0-1A1FC104F323}.Debug|x86.ActiveCfg = Debug|Win32
+		{F0B29235-FF7B-4CDD-92F0-1A1FC104F323}.Debug|x86.Build.0 = Debug|Win32
+		{F0B29235-FF7B-4CDD-92F0-1A1FC104F323}.Release|x64.ActiveCfg = Release|x64
+		{F0B29235-FF7B-4CDD-92F0-1A1FC104F323}.Release|x64.Build.0 = Release|x64
+		{F0B29235-FF7B-4CDD-92F0-1A1FC104F323}.Release|x86.ActiveCfg = Release|Win32
+		{F0B29235-FF7B-4CDD-92F0-1A1FC104F323}.Release|x86.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {EB9D4482-B885-4E0C-A00E-E76F5D3E9E9E}
+	EndGlobalSection
+EndGlobal
