@@ -1,9 +1,60 @@
 // Saturn.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
+#include <dpp/dpp.h>
+#include <iostream>
+
+#define TOKEN_LENGTH 61
+
+void LoadToken(std::string& token, const char* location_path)
+{
+    std::fstream stream(location_path);
+    if (stream.good())
+    {
+        char* buffer = new char[TOKEN_LENGTH];
+        stream.read(buffer, TOKEN_LENGTH);
+        token = buffer;
+
+        delete buffer;
+        buffer = nullptr;
+    }
+    else
+        token = "";
+}
+
 int main()
 {
-	
+    std::string token;
+    LoadToken(token, "token.txt");
+    if (token == "")
+    {
+        std::cout << "Invalid Token read\n";
+        std::cin.get();
+        return 0;
+    }
+
+    dpp::cluster bot(token);
+
+    bot.on_ready([&bot](const dpp::ready_t& event) 
+        {
+			std::cout << "Logged in as " << bot.me.username << "!\n";
+        });
+
+    bot.on_message_create([&bot](const dpp::message_create_t& event)
+        {
+	        if (event.msg->content == "!ping") 
+	        {
+	            bot.message_create(dpp::message(event.msg->channel_id, "Pong!"));
+	        }
+        });
+
+    
+	/*
+	 * The parameter which we set to false indicates if the function should return once all shards are created.
+     * Passing false here tells the program you do not need to do anything once bot.start is called,
+     * so the return statement directly afterwards is never reached
+     */
+    bot.start(false);
 	return 0;
 }
 

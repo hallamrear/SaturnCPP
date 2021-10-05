@@ -32,3 +32,7 @@
 *.app
 /Saturn/.vs/Saturn/v16
 /Saturn/Debug
+/Saturn/x64/Debug
+/Saturn/Release
+/Saturn/x64/Release
+/Saturn/token.txt
