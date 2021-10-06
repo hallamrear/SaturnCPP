@@ -4,31 +4,56 @@
 #include <dpp/dpp.h>
 #include <iostream>
 
-#define TOKEN_LENGTH 61
+#define TOKEN_LENGTH 59
+#define CONSOLE_TEXT_WHITE 15
+#define CONSOLE_TEXT_RED 12
+HANDLE consoleHandle;
+
+void PrintError(std::string error)
+{
+    SetConsoleTextAttribute(consoleHandle, CONSOLE_TEXT_RED);
+    std::cout << error << "\n";
+    SetConsoleTextAttribute(consoleHandle, CONSOLE_TEXT_WHITE);
+}
 
 void LoadToken(std::string& token, const char* location_path)
 {
     std::fstream stream(location_path);
     if (stream.good())
     {
+        //Create buffer to exact size of expected token.
         char* buffer = new char[TOKEN_LENGTH];
-        stream.read(buffer, TOKEN_LENGTH);
-        token = buffer;
 
-        delete buffer;
+        //Read the expected number of characters from the file
+        //This should exclude the endline and eof.
+        stream.read(buffer, TOKEN_LENGTH);
+
+        //Set token to the buffer.
+        //This fixes the error presented in line 27 in which the buffer is created 4 characters larger in debug mode.
+        token.assign(&buffer[0], &buffer[0] + TOKEN_LENGTH);
+
+        //Cleanup
+        delete [] buffer;
         buffer = nullptr;
     }
     else
         token = "";
+
+    stream.close();
 }
 
 int main()
 {
+    consoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
+    SetConsoleTextAttribute(consoleHandle, CONSOLE_TEXT_WHITE);
+
     std::string token;
     LoadToken(token, "token.txt");
-    if (token == "")
+
+
+    if (token.length() != TOKEN_LENGTH || token == "")
     {
-        std::cout << "Invalid Token read\n";
+        PrintError("Invalid Token read");
         std::cin.get();
         return 0;
     }
@@ -42,10 +67,64 @@ int main()
 
     bot.on_message_create([&bot](const dpp::message_create_t& event)
         {
+            std::string content = event.msg->content;
+          
 	        if (event.msg->content == "!ping") 
 	        {
 	            bot.message_create(dpp::message(event.msg->channel_id, "Pong!"));
 	        }
+
+            if (event.msg->content == "!list")
+            {
+                dpp::snowflake channel = event.msg->channel_id;
+
+                bot.current_user_get_guilds([&bot, &channel](const dpp::confirmation_callback_t& event)
+                {
+						if (event.is_error())
+                        {
+                            std::cout << event.get_error().message << std::endl;
+                            return;
+                        }
+                        else
+                        {
+                            std::string guildList = "";
+                            dpp::guild_map guilds;
+                            guilds = std::get<dpp::guild_map>(event.value);
+
+                            if (guilds.size() > 1)
+                            {
+                                guildList += "```" + bot.me.username + " is currently in " + std::to_string(guilds.size()) + " servers.\n";
+
+                                for (auto& guild : guilds)
+                                {
+                                    guildList += "=> " + guild.second.name + '\n';
+                                }
+
+                                guildList += "```\n";
+                            }
+                            else
+                                guildList += "```" + bot.me.username + " is currently only in this server.```\n";
+
+                            bot.message_create(dpp::message(channel, guildList));
+                        }
+                });
+
+               
+            }
+
+
+            if(event.msg->content == "!help")
+            {
+                std::string help = "";
+                help += "```\n";
+            	help += "\n\t\t => " + bot.me.username + " <=\n\n";
+            	help += bot.me.username + " is maintained by Hal, (@HalWasTooShort), with the source available on Github(https://github.com/hallamrear/SaturnCPP)\n";
+                help += "All the available commands include:\n";
+                help += "> !list - Lists all servers this bot is in.";
+                help += "```\n";
+                
+                bot.message_create(dpp::message(event.msg->channel_id, help));
+            }
         });
 
     
