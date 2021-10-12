@@ -2,9 +2,11 @@
 //
 
 #include <dpp/dpp.h>
+#include <dpp/fmt/printf.h>
 #include <iostream>
 
 #define TOKEN_LENGTH 59
+#define COMMAND_PREFIX ';'
 #define CONSOLE_TEXT_WHITE 15
 #define CONSOLE_TEXT_RED 12
 HANDLE consoleHandle;
@@ -50,7 +52,6 @@ int main()
     std::string token;
     LoadToken(token, "token.txt");
 
-
     if (token.length() != TOKEN_LENGTH || token == "")
     {
         PrintError("Invalid Token read");
@@ -61,14 +62,20 @@ int main()
     dpp::cluster bot(token);
 
     bot.on_ready([&bot](const dpp::ready_t& event) 
-        {
-			std::cout << "Logged in as " << bot.me.username << "!\n";
-        });
+    {
+		std::cout << "Logged in as " << bot.me.username << "!\n";
+    });
 
     bot.on_message_create([&bot](const dpp::message_create_t& event)
         {
             std::string content = event.msg->content;
-          
+            std::string command = "";
+			if(content[0] == COMMAND_PREFIX)
+			{
+                command = content.substr(1, content.length() - 1);
+                //ParseCommand(command, parameters);
+			}
+
 	        if (event.msg->content == "!ping") 
 	        {
 	            bot.message_create(dpp::message(event.msg->channel_id, "Pong!"));

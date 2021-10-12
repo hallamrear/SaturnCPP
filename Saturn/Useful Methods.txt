@@ -8,3 +8,7 @@
 
 bot.message_create(dpp::message(event.msg->channel_id, "Pong!"));
 Sends a message to the channel, takes a dpp::message(channel to send to, message content)
+
+dpp::guild_map guilds;
+guilds = std::get<dpp::guild_map>(event.value);
+How to return a type from the dpp event system
