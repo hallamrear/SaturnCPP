@@ -14,16 +14,22 @@
 HANDLE ConsoleHandle;
 static char CommandPrefix = ';';
 std::unordered_map<std::string, std::function<void(struct MessageDetails, std::vector<std::string>)>> CommandFunctionMap;
+bool InVoiceChat;
+dpp::snowflake CurrentVoiceChannel;
+dpp::discord_voice_client* VoiceClient;
 
 struct MessageDetails
 {
+    //Do not use this if you are unsure. You probably want the bot.
+    dpp::discord_client* messageClient;
     dpp::cluster* bot;
     dpp::user author;
+    dpp::snowflake guild_id;
 	dpp::snowflake channel_id;
     time_t sentTime;
 
-    MessageDetails(dpp::cluster* _bot, dpp::user _author, dpp::snowflake _channel_id, time_t _sentTime)
-	: bot(_bot), author(_author), channel_id(_channel_id), sentTime(_sentTime) {};
+    MessageDetails(dpp::cluster* _bot, dpp::discord_client* _client, dpp::user _author, dpp::snowflake _guild_id, dpp::snowflake _channel_id, time_t _sentTime)
+	: bot(_bot), messageClient(_client), author(_author), guild_id(_guild_id), channel_id(_channel_id), sentTime(_sentTime) {};
 };
 
 
@@ -125,14 +131,93 @@ void ListCommands(MessageDetails details, std::vector<std::string> parameters)
     });
 }
 
-void JoinVoice(MessageDetails details, std::vector<std::string> parameters)
-{
-	
-}
-
 void LeaveVoice(MessageDetails details, std::vector<std::string> parameters)
 {
-	
+    if(InVoiceChat)
+    {
+        details.messageClient->disconnect_voice(details.guild_id);
+
+        InVoiceChat = false;
+        CurrentVoiceChannel = 0;
+        VoiceClient = nullptr;
+    }
+}
+
+void JoinVoice(MessageDetails details, std::vector<std::string> parameters)
+{
+    if(parameters.size() != 0)
+    {
+        details.bot->message_create(dpp::message(details.channel_id, "I'm not a dog. Don't try and tell me where to go."));
+    }
+
+    dpp::user target = details.author;
+	dpp::guild* guild = dpp::find_guild(details.guild_id);
+
+    bool needToJoinChat = true;
+    /* Check if we are currently on any vc */
+    if (InVoiceChat)
+    {
+        /* Find the channel id  that the user is currently on */
+        auto users_vc = guild->voice_members.find(details.author.id);
+
+        if (users_vc != guild->voice_members.end() && CurrentVoiceChannel == users_vc->second.channel_id)
+        {
+            //We're already in the voice channel
+            needToJoinChat = false;
+            details.bot->message_create(dpp::message(details.channel_id, "I'm already here bozo."));
+        }
+        else 
+        {
+            //Leave and set us to rejoin
+            LeaveVoice(details, parameters);
+            needToJoinChat = true;
+        }
+    }
+
+    //If we do need to join a channel
+    if (needToJoinChat) 
+    {
+        //Make sure theyre in one.
+    	//The actual joining bit is done here.
+        //Itll fail if youre not in a channel
+        if (!guild->connect_member_voice(details.author.id)) 
+        {
+            details.bot->message_create(dpp::message(details.channel_id, "Get in a channel so i can join."));
+        }
+        else 
+        {
+            //Get our voice connection data
+            dpp::voiceconn* voiceConnection = details.messageClient->get_voice(details.guild_id);
+
+            while(voiceConnection && voiceConnection->voiceclient && voiceConnection->voiceclient->is_ready() == false)
+            {
+                InVoiceChat = true;
+                CurrentVoiceChannel = voiceConnection->channel_id;
+            }
+
+            //if (voiceConnection && voiceConnection->voiceclient)
+            //{
+            //    /* Stream the already decoded MP3 file. This passes the PCM data to the library to be encoded to OPUS */
+            //    //voiceConnection->voiceclient->send_audio_raw((uint16_t*)pcmdata.data(), pcmdata.size());
+
+            
+
+            //
+            //
+            //}
+
+            /* We are now connecting to a vc. Wait for on_voice_ready
+             * event, and then send the audio within that event:
+             *
+             * event.voice_client->send_audio_raw(...);
+             *
+             * NOTE: We can't instantly send audio, as we have to wait for
+             * the connection to the voice server to be established!
+             */
+
+            voiceConnection = nullptr;
+        }
+    }
 }
 
 void ParseCommand(MessageDetails details, std::string command, std::vector<std::string> arguments)
@@ -186,8 +271,35 @@ void GetCommandKey(MessageDetails details, std::vector<std::string> arguments)
     details.bot->message_create(dpp::message(details.channel_id, s));
 }   
 
+uint8_t* robot = nullptr;
+size_t robot_size = 0;
+
+void PlayTestAudio(MessageDetails details, std::vector<std::string> arguments)
+{
+    if(InVoiceChat)
+		VoiceClient->send_audio_raw((uint16_t*)robot, robot_size);
+}
+
+void TestAudioStream()
+{
+    std::ifstream input("Robot.wav", std::ios::in | std::ios::binary | std::ios::ate);
+    if (input.is_open()) {
+        robot_size = input.tellg();
+        robot = new uint8_t[robot_size];
+        input.seekg(0, std::ios::beg);
+        input.read((char*)robot, robot_size);
+        input.close();
+    }
+}
+
 int main()
 {
+    TestAudioStream();
+
+    InVoiceChat = false;
+    CurrentVoiceChannel = -1;
+    VoiceClient = nullptr;
+
     std::string token;
     LoadToken(token, "token.txt");
 
@@ -209,6 +321,7 @@ int main()
     CommandFunctionMap.emplace(std::make_pair("leave", LeaveVoice));
     CommandFunctionMap.emplace(std::make_pair("ping", PingPongReply));
     CommandFunctionMap.emplace(std::make_pair("list", ListCommands));
+    CommandFunctionMap.emplace(std::make_pair("playtest", PlayTestAudio));
 
     ConsoleHandle = GetStdHandle(STD_OUTPUT_HANDLE);
     SetConsoleTextAttribute(ConsoleHandle, CONSOLE_TEXT_WHITE);
@@ -219,46 +332,52 @@ int main()
     });
 
     bot.on_message_create([&bot](const dpp::message_create_t& event)
-        {
-            std::string content = event.msg->content;
+    {
+        std::string content = event.msg->content;
 
-			if(content[0] == CommandPrefix)
-			{
-                std::string command = "";
-                std::vector<std::string> arguments;
-                MessageDetails details(&bot, *event.msg->author, event.msg->channel_id, event.msg->sent);
+		if(content[0] == CommandPrefix)
+		{
+            std::string command = "";
+            std::vector<std::string> arguments;
+            MessageDetails details(&bot, event.from, *event.msg->author, event.msg->guild_id, event.msg->channel_id, event.msg->sent);
 
-                content = content.substr(1, content.length() - 1);
+            content = content.substr(1, content.length() - 1);
 
-                int end = content.find(' ');
-                if (end != -1)
+            int end = content.find(' ');
+            if (end != -1)
+            {
+                command = content.substr(0, end);
+                content.erase(0, end + 1);
+
+                int start = 0;
+                end = content.find(' ');
+                while (end != -1) 
                 {
-                    command = content.substr(0, end);
-                    content.erase(0, end + 1);
-
-                    int start = 0;
-                    end = content.find(' ');
-                    while (end != -1) 
-                    {
-                        arguments.push_back(content.substr(start, end - start));
-                        start = end + 1;
-                        end = content.find(' ', start);
-                    }
                     arguments.push_back(content.substr(start, end - start));
-
+                    start = end + 1;
+                    end = content.find(' ', start);
                 }
-                else
-                    command = content;
+                arguments.push_back(content.substr(start, end - start));
 
-                for (size_t i = 0; i < command.size(); i++)
-                    command[i] = std::tolower(command[i]);
+            }
+            else
+                command = content;
 
-                ParseCommand(details, command, arguments);
-			}
+            for (size_t i = 0; i < command.size(); i++)
+                command[i] = std::tolower(command[i]);
 
-            content.clear();
-        });
+            ParseCommand(details, command, arguments);
+		}
 
+        content.clear();
+    });
+
+    bot.on_voice_ready([&bot](const dpp::voice_ready_t& event)
+    {
+    	InVoiceChat = true;
+        CurrentVoiceChannel = event.voice_channel_id;
+        VoiceClient = event.voice_client;
+    });
     
 	/*
 	 * The parameter which we set to false indicates if the function should return once all shards are created.
